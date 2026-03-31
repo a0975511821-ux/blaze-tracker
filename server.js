@@ -44,10 +44,19 @@ console.log('[DB] Banco de dados inicializado');
 ──────────────────────────────────────────── */
 
 const BLAZE_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-  'Accept': 'application/json',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+  'Accept-Encoding': 'gzip, deflate, br',
   'Origin': 'https://blaze.com',
-  'Referer': 'https://blaze.com/'
+  'Referer': 'https://blaze.com/pt/games/double',
+  'sec-ch-ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"Windows"',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin',
+  'Connection': 'keep-alive',
 };
 
 /* ── Double ── */
@@ -55,7 +64,7 @@ async function fetchDoubleFromBlaze() {
   try {
     const res = await axios.get(
       'https://blaze.com/api/roulette_games/recent?page=1&limit=60',
-      { headers: BLAZE_HEADERS, timeout: 8000 }
+      { headers: BLAZE_HEADERS, timeout: 10000, withCredentials: false }
     );
 
     const rounds = res.data;
@@ -93,7 +102,7 @@ async function fetchCrashFromBlaze() {
   try {
     const res = await axios.get(
       'https://blaze.com/api/crash_games/recent?page=1&limit=60',
-      { headers: BLAZE_HEADERS, timeout: 8000 }
+      { headers: BLAZE_HEADERS, timeout: 10000, withCredentials: false }
     );
 
     const rounds = res.data;
