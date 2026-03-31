@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlazeTrack — Double & Crash ao vivo</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --surface3: #22222f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0f0f8;
+    --text2: #8888aa;
+    --text3: #555570;
+    --red: #ff3d3d;
+    --black-card: #1f1f2e;
+    --white-val: #e8e8ff;
+    --green: #00e676;
+    --amber: #ffab00;
+    --accent: #7c6af7;
+    --accent2: #a855f7;
+    --crash-line: #00c896;
+    --font: 'Syne', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  /* ── NAV ── */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem; height: 60px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.02em; }
+  .logo span { color: var(--accent); }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab {
+    padding: 6px 16px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; border: none; background: transparent; color: var(--text2);
+    transition: all 0.15s; font-family: var(--font);
+  }
+  .nav-tab.active, .nav-tab:hover { background: var(--surface3); color: var(--text); }
+  .nav-tab.active { color: var(--accent); }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.75rem; font-weight: 600; color: var(--green);
+    font-family: var(--mono);
+  }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green); animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; }
+
+  /* ── PAGES ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── STAT CARDS ── */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .stat-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1rem 1.2rem;
+  }
+  .stat-label { font-size: 0.72rem; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .stat-value { font-size: 1.6rem; font-weight: 800; font-family: var(--mono); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.black { color: var(--white-val); }
+  .stat-value.white { color: #ffee58; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.accent { color: var(--accent); }
+
+  /* ── GRID PRINCIPAL ── */
+  .main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; }
+  @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
+
+  /* ── ÚLTIMAS RODADAS LIVE ── */
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title { font-size: 0.85rem; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; }
+  .panel-body { padding: 1rem 1.2rem; }
+
+  /* ── DOUBLE BALLS ── */
+  .rounds-track { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ball {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 700; font-family: var(--mono);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .ball:hover { transform: scale(1.15); }
+  .ball.red { background: var(--red); color: #fff; }
+  .ball.black { background: #2a2a3a; color: var(--text); border: 1px solid #444; }
+  .ball.white { background: #fff; color: #111; }
+  .ball.new { animation: ballIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  @keyframes ballIn { from{transform:scale(0) rotate(-90deg);opacity:0} to{transform:scale(1) rotate(0);opacity:1} }
+
+  /* ── CRASH VELAS ── */
+  .crash-track { display: flex; flex-wrap: wrap; gap: 6px; }
+  .crash-pill {
+    padding: 5px 10px; border-radius: 6px;
+    font-size: 0.78rem; font-weight: 700; font-family: var(--mono);
+    transition: transform 0.2s;
+  }
+  .crash-pill:hover { transform: scale(1.08); }
+  .crash-pill.low { background: #1a2a20; color: var(--green); border: 1px solid #1f4030; }
+  .crash-pill.mid { background: #1e2a14; color: #b2ff59; border: 1px solid #2d4020; }
+  .crash-pill.high { background: #2a2010; color: var(--amber); border: 1px solid #4a3510; }
+  .crash-pill.moon { background: #251a35; color: var(--accent2); border: 1px solid #4a2a6a; }
+  .crash-pill.new { animation: pillIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  @keyframes pillIn { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+
+  /* ── SIDEBAR STREAK ── */
+  .streak-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .streak-item:last-child { border-bottom: none; }
+  .streak-label { font-size: 0.8rem; color: var(--text2); }
+  .streak-val { font-size: 0.9rem; font-weight: 700; font-family: var(--mono); }
+
+  /* ── CHART ── */
+  .chart-wrap { position: relative; width: 100%; height: 220px; }
+
+  /* ── TABELA HISTÓRICO ── */
+  .filter-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .filter-select, .filter-input {
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 7px; padding: 7px 12px;
+    color: var(--text); font-family: var(--font); font-size: 0.82rem;
+    outline: none; cursor: pointer;
+  }
+  .filter-select:focus, .filter-input:focus { border-color: var(--accent); }
+  .filter-btn {
+    background: var(--accent); border: none; border-radius: 7px;
+    padding: 7px 16px; color: #fff; font-family: var(--font);
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .filter-btn:hover { opacity: 0.85; }
+
+  .hist-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  .hist-table th {
+    text-align: left; padding: 10px 12px;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text3); border-bottom: 1px solid var(--border);
+  }
+  .hist-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .hist-table tbody tr:hover { background: var(--surface2); }
+  .color-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%; font-size: 0.7rem; font-weight: 700;
+  }
+  .color-badge.red { background: var(--red); color: #fff; }
+  .color-badge.black { background: #2a2a3a; color: var(--text); border: 1px solid #444; }
+  .color-badge.white { background: #fff; color: #111; }
+
+  /* ── LOADING ── */
+  .loading {
+    display: flex; align-items: center; justify-content: center;
+    padding: 2rem; color: var(--text3); font-size: 0.85rem; gap: 8px;
+  }
+  .spin {
+    width: 16px; height: 16px; border: 2px solid var(--border2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── ERRO ── */
+  .error-msg {
+    text-align: center; padding: 2rem; color: var(--red);
+    font-size: 0.85rem; font-family: var(--mono);
+  }
+
+  /* ── SECTION TITLE ── */
+  .section-sep { margin: 2rem 0 1rem; display: flex; align-items: center; gap: 12px; }
+  .section-sep-title { font-size: 0.75rem; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
+  .section-sep-line { flex: 1; height: 1px; background: var(--border); }
+
+  /* ── CHART CRASH TABS ── */
+  .tab-pills { display: flex; gap: 4px; }
+  .tab-pill {
+    padding: 4px 10px; border-radius: 5px; font-size: 0.75rem; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border); background: transparent;
+    color: var(--text2); font-family: var(--font); transition: all 0.15s;
+  }
+  .tab-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── EMPTY ── */
+  .empty { text-align: center; padding: 3rem 1rem; color: var(--text3); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Blaze<span>Track</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('double')">Double</button>
+    <button class="nav-tab" onclick="showPage('crash')">Crash</button>
+    <button class="nav-tab" onclick="showPage('historico')">Histórico</button>
+  </div>
+  <div class="live-badge"><div class="live-dot"></div><span id="live-status">conectando...</span></div>
+</nav>
+
+<!-- ══════════════════════ PAGE: DOUBLE ══════════════════════ -->
+<div id="page-double" class="page active">
+  <div class="container">
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Vermelhas hoje</div><div class="stat-value red" id="d-stat-red">—</div></div>
+      <div class="stat-card"><div class="stat-label">Pretas hoje</div><div class="stat-value black" id="d-stat-black">—</div></div>
+      <div class="stat-card"><div class="stat-label">Brancos hoje</div><div class="stat-value white" id="d-stat-white">—</div></div>
+      <div class="stat-card"><div class="stat-label">Total rodadas</div><div class="stat-value accent" id="d-stat-total">—</div></div>
+      <div class="stat-card"><div class="stat-label">% Vermelha</div><div class="stat-value red" id="d-stat-redpct">—</div></div>
+      <div class="stat-card"><div class="stat-label">% Preta</div><div class="stat-value black" id="d-stat-blackpct">—</div></div>
+    </div>
+
+    <div class="main-grid">
+      <div>
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Últimas rodadas — ao vivo</span>
+            <span id="d-last-update" style="font-size:0.72rem;color:var(--text3);font-family:var(--mono)"></span>
+          </div>
+          <div class="panel-body">
+            <div id="double-balls" class="rounds-track">
+              <div class="loading"><div class="spin"></div> carregando...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-sep"><div class="section-sep-line"></div><div class="section-sep-title">Frequência por cor — hoje</div><div class="section-sep-line"></div></div>
+
+        <div class="panel">
+          <div class="panel-body">
+            <div class="chart-wrap">
+              <canvas id="doubleBarChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-sep"><div class="section-sep-line"></div><div class="section-sep-title">Distribuição por número</div><div class="section-sep-line"></div></div>
+
+        <div class="panel">
+          <div class="panel-body">
+            <div class="chart-wrap" style="height:180px">
+              <canvas id="doubleNumChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:1rem;">
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Sequências</span></div>
+          <div class="panel-body" id="double-streaks">
+            <div class="loading"><div class="spin"></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Última rodada</span></div>
+          <div class="panel-body" id="double-last" style="text-align:center;padding:1.5rem">
+            <div class="loading"><div class="spin"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ PAGE: CRASH ══════════════════════ -->
+<div id="page-crash" class="page">
+  <div class="container">
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Média crash hoje</div><div class="stat-value green" id="c-stat-avg">—</div></div>
+      <div class="stat-card"><div class="stat-label">Maior vela hoje</div><div class="stat-value accent" id="c-stat-max">—</div></div>
+      <div class="stat-card"><div class="stat-label">Velas &lt; 2x</div><div class="stat-value red" id="c-stat-low">—</div></div>
+      <div class="stat-card"><div class="stat-label">Velas &gt; 10x</div><div class="stat-value" style="color:var(--accent2)" id="c-stat-high">—</div></div>
+      <div class="stat-card"><div class="stat-label">Total rodadas</div><div class="stat-value accent" id="c-stat-total">—</div></div>
+      <div class="stat-card"><div class="stat-label">Mediana</div><div class="stat-value green" id="c-stat-median">—</div></div>
+    </div>
+
+    <div class="main-grid">
+      <div>
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Últimas velas — ao vivo</span>
+            <div class="tab-pills">
+              <button class="tab-pill active" onclick="crashView('pills')">Pills</button>
+              <button class="tab-pill" onclick="crashView('chart')">Gráfico</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="crash-pills-view">
+              <div id="crash-pills" class="crash-track">
+                <div class="loading"><div class="spin"></div> carregando...</div>
+              </div>
+            </div>
+            <div id="crash-chart-view" style="display:none">
+              <div class="chart-wrap" style="height:260px">
+                <canvas id="crashLineChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-sep"><div class="section-sep-line"></div><div class="section-sep-title">Distribuição de multiplicadores</div><div class="section-sep-line"></div></div>
+
+        <div class="panel">
+          <div class="panel-body">
+            <div class="chart-wrap">
+              <canvas id="crashDistChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:1rem;">
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Faixas de multiplicador</span></div>
+          <div class="panel-body" id="crash-ranges">
+            <div class="loading"><div class="spin"></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Última vela</span></div>
+          <div class="panel-body" id="crash-last" style="text-align:center;padding:1.5rem">
+            <div class="loading"><div class="spin"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ PAGE: HISTÓRICO ══════════════════════ -->
+<div id="page-historico" class="page">
+  <div class="container">
+    <div class="filter-row">
+      <select class="filter-select" id="hist-game">
+        <option value="double">Double</option>
+        <option value="crash">Crash</option>
+      </select>
+      <input class="filter-input" type="date" id="hist-date">
+      <select class="filter-select" id="hist-color" style="display:block">
+        <option value="">Todas as cores</option>
+        <option value="red">Vermelho</option>
+        <option value="black">Preto</option>
+        <option value="white">Branco</option>
+      </select>
+      <input class="filter-input" type="number" id="hist-min" placeholder="Mín (crash)" style="width:130px;display:none">
+      <input class="filter-input" type="number" id="hist-max" placeholder="Máx (crash)" style="width:130px;display:none">
+      <button class="filter-btn" onclick="loadHistory()">Filtrar</button>
+    </div>
+    <div class="panel">
+      <div id="hist-content">
+        <div class="loading"><div class="spin"></div> selecione os filtros e clique em filtrar</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';  // mesmo servidor — proxy
+
+/* ── PÁGINAS ── */
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'historico') setupHistorico();
+}
+
+/* ── DADOS DOUBLE ── */
+let doubleData = [];
+let barChart, numChart, crashLineChart, crashDistChart;
+
+async function fetchDouble() {
+  try {
+    const r = await fetch(API + '/api/double/recent');
+    if (!r.ok) throw new Error();
+    doubleData = await r.json();
+    renderDouble();
+  } catch(e) {
+    document.getElementById('double-balls').innerHTML = '<div class="error-msg">Erro ao conectar com o servidor</div>';
+  }
+}
+
+function renderDouble() {
+  const rounds = doubleData.slice(0, 60);
+  const all = doubleData;
+
+  // stats
+  const reds = all.filter(r => r.color === 'red').length;
+  const blacks = all.filter(r => r.color === 'black').length;
+  const whites = all.filter(r => r.color === 'white').length;
+  const total = all.length;
+  document.getElementById('d-stat-red').textContent = reds;
+  document.getElementById('d-stat-black').textContent = blacks;
+  document.getElementById('d-stat-white').textContent = whites;
+  document.getElementById('d-stat-total').textContent = total;
+  document.getElementById('d-stat-redpct').textContent = total ? (reds/total*100).toFixed(1)+'%' : '—';
+  document.getElementById('d-stat-blackpct').textContent = total ? (blacks/total*100).toFixed(1)+'%' : '—';
+
+  // balls
+  const track = document.getElementById('double-balls');
+  const prev = track.querySelectorAll('.ball').length;
+  track.innerHTML = '';
+  rounds.forEach((r, i) => {
+    const b = document.createElement('div');
+    b.className = 'ball ' + r.color + (i === 0 && prev > 0 ? ' new' : '');
+    b.textContent = r.roll !== undefined ? r.roll : '';
+    track.appendChild(b);
+  });
+
+  // last update
+  if (all.length) {
+    const t = new Date(all[0].created_at);
+    document.getElementById('d-last-update').textContent =
+      t.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  }
+
+  // última rodada
+  if (all[0]) {
+    const last = all[0];
+    document.getElementById('double-last').innerHTML = `
+      <div class="ball ${last.color}" style="width:64px;height:64px;font-size:1.2rem;margin:0 auto 12px">${last.roll ?? ''}</div>
+      <div style="font-size:1.1rem;font-weight:700;color:${last.color==='red'?'var(--red)':last.color==='white'?'#ffee58':'var(--text)'}">
+        ${last.color === 'red' ? 'Vermelho' : last.color === 'black' ? 'Preto' : 'Branco'}
+      </div>
+    `;
+  }
+
+  // streaks
+  let streak = 0, cur = null;
+  let maxRed = 0, maxBlack = 0, tmpR = 0, tmpB = 0;
+  for (const r of all) {
+    if (r.color === cur) { streak++; } else { streak = 1; cur = r.color; }
+    if (r.color === 'red') { tmpR++; tmpB=0; maxRed = Math.max(maxRed,tmpR); }
+    else if (r.color === 'black') { tmpB++; tmpR=0; maxBlack = Math.max(maxBlack,tmpB); }
+    else { tmpR=0; tmpB=0; }
+  }
+  const curColor = all[0]?.color;
+  let curStreak = 0;
+  for (const r of all) { if (r.color === curColor) curStreak++; else break; }
+  document.getElementById('double-streaks').innerHTML = `
+    <div class="streak-item"><span class="streak-label">Sequência atual (${curColor ?? '—'})</span><span class="streak-val" style="color:${curColor==='red'?'var(--red)':curColor==='white'?'#ffee58':'var(--text)'}">${curStreak}×</span></div>
+    <div class="streak-item"><span class="streak-label">Maior seq. vermelho (hoje)</span><span class="streak-val" style="color:var(--red)">${maxRed}×</span></div>
+    <div class="streak-item"><span class="streak-label">Maior seq. preto (hoje)</span><span class="streak-val">${maxBlack}×</span></div>
+    <div class="streak-item"><span class="streak-label">Brancos hoje</span><span class="streak-val" style="color:#ffee58">${whites}</span></div>
+  `;
+
+  // bar chart
+  const barData = [reds, blacks, whites];
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById('doubleBarChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Vermelho', 'Preto', 'Branco'],
+      datasets: [{ data: barData, backgroundColor: ['#ff3d3d99','#2a2a3a','#ffee5860'], borderColor: ['#ff3d3d','#555','#ffee58'], borderWidth: 2, borderRadius: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888', font: { family: 'JetBrains Mono' } }, grid: { color: '#ffffff08' } },
+        y: { ticks: { color: '#888', font: { family: 'JetBrains Mono' } }, grid: { color: '#ffffff08' } }
+      }
+    }
+  });
+
+  // number distribution
+  const numCounts = {};
+  for (let i = 0; i <= 14; i++) numCounts[i] = 0;
+  all.forEach(r => { if (r.roll !== undefined && numCounts[r.roll] !== undefined) numCounts[r.roll]++; });
+  const numLabels = Object.keys(numCounts).map(String);
+  const numVals = Object.values(numCounts);
+  if (numChart) numChart.destroy();
+  numChart = new Chart(document.getElementById('doubleNumChart'), {
+    type: 'bar',
+    data: {
+      labels: numLabels,
+      datasets: [{ data: numVals, backgroundColor: numLabels.map(n => n==='0'?'#fff3':'#7c6af760'), borderColor: numLabels.map(n => n==='0'?'#ffee58':'#7c6af7'), borderWidth: 1.5, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888', font: { family: 'JetBrains Mono', size: 11 } }, grid: { display: false } },
+        y: { ticks: { color: '#888', font: { family: 'JetBrains Mono', size: 11 } }, grid: { color: '#ffffff08' } }
+      }
+    }
+  });
+
+  setLiveStatus(true);
+}
+
+/* ── DADOS CRASH ── */
+let crashData = [];
+
+async function fetchCrash() {
+  try {
+    const r = await fetch(API + '/api/crash/recent');
+    if (!r.ok) throw new Error();
+    crashData = await r.json();
+    renderCrash();
+  } catch(e) {
+    document.getElementById('crash-pills').innerHTML = '<div class="error-msg">Erro ao conectar com o servidor</div>';
+  }
+}
+
+function pillClass(v) {
+  if (v < 2) return 'low';
+  if (v < 5) return 'mid';
+  if (v < 10) return 'high';
+  return 'moon';
+}
+
+function renderCrash() {
+  const rounds = crashData.slice(0, 60);
+  const all = crashData;
+
+  const vals = all.map(r => parseFloat(r.crash_point));
+  const avg = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+  const max = vals.length ? Math.max(...vals) : 0;
+  const low = vals.filter(v=>v<2).length;
+  const high = vals.filter(v=>v>=10).length;
+  const sorted = [...vals].sort((a,b)=>a-b);
+  const median = sorted.length ? sorted[Math.floor(sorted.length/2)] : 0;
+
+  document.getElementById('c-stat-avg').textContent = avg.toFixed(2)+'x';
+  document.getElementById('c-stat-max').textContent = max.toFixed(2)+'x';
+  document.getElementById('c-stat-low').textContent = low;
+  document.getElementById('c-stat-high').textContent = high;
+  document.getElementById('c-stat-total').textContent = all.length;
+  document.getElementById('c-stat-median').textContent = median.toFixed(2)+'x';
+
+  // pills
+  const track = document.getElementById('crash-pills');
+  const prev = track.querySelectorAll('.crash-pill').length;
+  track.innerHTML = '';
+  rounds.forEach((r, i) => {
+    const p = document.createElement('div');
+    const v = parseFloat(r.crash_point);
+    p.className = 'crash-pill ' + pillClass(v) + (i === 0 && prev > 0 ? ' new' : '');
+    p.textContent = v.toFixed(2) + 'x';
+    track.appendChild(p);
+  });
+
+  // última vela
+  if (all[0]) {
+    const v = parseFloat(all[0].crash_point);
+    const cls = pillClass(v);
+    const colors = { low: 'var(--green)', mid: '#b2ff59', high: 'var(--amber)', moon: 'var(--accent2)' };
+    document.getElementById('crash-last').innerHTML = `
+      <div style="font-size:2.5rem;font-weight:800;font-family:var(--mono);color:${colors[cls]}">${v.toFixed(2)}x</div>
+      <div style="margin-top:6px;font-size:0.8rem;color:var(--text3)">${cls === 'moon' ? '🌙 Lua!' : cls === 'high' ? 'Alta' : cls === 'mid' ? 'Média' : 'Baixa'}</div>
+    `;
+  }
+
+  // ranges sidebar
+  const ranges = [
+    { label: '< 2x (baixa)', count: vals.filter(v=>v<2).length, color: 'var(--green)' },
+    { label: '2x – 5x', count: vals.filter(v=>v>=2&&v<5).length, color: '#b2ff59' },
+    { label: '5x – 10x', count: vals.filter(v=>v>=5&&v<10).length, color: 'var(--amber)' },
+    { label: '≥ 10x (lua)', count: vals.filter(v=>v>=10).length, color: 'var(--accent2)' },
+  ];
+  document.getElementById('crash-ranges').innerHTML = ranges.map(r => `
+    <div class="streak-item">
+      <span class="streak-label">${r.label}</span>
+      <span class="streak-val" style="color:${r.color}">${r.count} <span style="font-size:0.7rem;color:var(--text3)">(${all.length ? (r.count/all.length*100).toFixed(0) : 0}%)</span></span>
+    </div>
+  `).join('');
+
+  // line chart (últimas 40)
+  const last40 = rounds.slice(0, 40).reverse().map(r => parseFloat(r.crash_point));
+  if (crashLineChart) crashLineChart.destroy();
+  crashLineChart = new Chart(document.getElementById('crashLineChart'), {
+    type: 'line',
+    data: {
+      labels: last40.map((_,i) => i+1),
+      datasets: [{
+        data: last40, borderColor: '#00c896', backgroundColor: '#00c89620',
+        borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#00c896', fill: true, tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: '#ffffff08' } },
+        y: { ticks: { color: '#888', font: { family: 'JetBrains Mono', size: 10 }, callback: v => v+'x' }, grid: { color: '#ffffff08' } }
+      }
+    }
+  });
+
+  // dist chart
+  const bands = ['<2', '2-3', '3-5', '5-10', '10-20', '>20'];
+  const bandVals = [
+    vals.filter(v=>v<2).length,
+    vals.filter(v=>v>=2&&v<3).length,
+    vals.filter(v=>v>=3&&v<5).length,
+    vals.filter(v=>v>=5&&v<10).length,
+    vals.filter(v=>v>=10&&v<20).length,
+    vals.filter(v=>v>=20).length,
+  ];
+  if (crashDistChart) crashDistChart.destroy();
+  crashDistChart = new Chart(document.getElementById('crashDistChart'), {
+    type: 'bar',
+    data: {
+      labels: bands,
+      datasets: [{ data: bandVals, backgroundColor: ['#ff3d3d60','#7c6af760','#b2ff5960','#ffab0060','#a855f760','#00c89660'], borderColor: ['#ff3d3d','#7c6af7','#b2ff59','#ffab00','#a855f7','#00c896'], borderWidth: 2, borderRadius: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888', font: { family: 'JetBrains Mono' } }, grid: { display: false } },
+        y: { ticks: { color: '#888', font: { family: 'JetBrains Mono' } }, grid: { color: '#ffffff08' } }
+      }
+    }
+  });
+
+  setLiveStatus(true);
+}
+
+/* ── CRASH VIEW TOGGLE ── */
+function crashView(v) {
+  document.querySelectorAll('.tab-pill').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('crash-pills-view').style.display = v === 'pills' ? 'block' : 'none';
+  document.getElementById('crash-chart-view').style.display = v === 'chart' ? 'block' : 'none';
+}
+
+/* ── HISTÓRICO ── */
+function setupHistorico() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('hist-date').value = today;
+  document.getElementById('hist-game').addEventListener('change', function() {
+    const isDouble = this.value === 'double';
+    document.getElementById('hist-color').style.display = isDouble ? 'block' : 'none';
+    document.getElementById('hist-min').style.display = isDouble ? 'none' : 'block';
+    document.getElementById('hist-max').style.display = isDouble ? 'none' : 'block';
+  });
+}
+
+async function loadHistory() {
+  const game = document.getElementById('hist-game').value;
+  const date = document.getElementById('hist-date').value;
+  const color = document.getElementById('hist-color').value;
+  const min = document.getElementById('hist-min').value;
+  const max = document.getElementById('hist-max').value;
+
+  document.getElementById('hist-content').innerHTML = '<div class="loading"><div class="spin"></div> buscando...</div>';
+
+  let url = `/api/${game}/history?date=${date}`;
+  if (color) url += `&color=${color}`;
+  if (min) url += `&min=${min}`;
+  if (max) url += `&max=${max}`;
+
+  try {
+    const r = await fetch(API + url);
+    if (!r.ok) throw new Error();
+    const data = await r.json();
+    renderHistory(game, data);
+  } catch(e) {
+    document.getElementById('hist-content').innerHTML = '<div class="error-msg">Erro ao buscar histórico</div>';
+  }
+}
+
+function renderHistory(game, data) {
+  if (!data.length) {
+    document.getElementById('hist-content').innerHTML = '<div class="empty">Nenhum resultado encontrado para os filtros selecionados.</div>';
+    return;
+  }
+
+  let html = `<div style="padding:0.5rem 1rem;border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--text3);">${data.length} resultados</div>`;
+  html += `<div style="overflow-x:auto"><table class="hist-table"><thead><tr>`;
+
+  if (game === 'double') {
+    html += `<th>#</th><th>Hora</th><th>Cor</th><th>Número</th></tr></thead><tbody>`;
+    data.forEach((r, i) => {
+      const t = new Date(r.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      html += `<tr>
+        <td style="color:var(--text3);font-family:var(--mono)">${i+1}</td>
+        <td style="font-family:var(--mono);font-size:0.8rem">${t}</td>
+        <td><div class="color-badge ${r.color}"></div></td>
+        <td style="font-family:var(--mono);font-weight:700">${r.roll ?? '—'}</td>
+      </tr>`;
+    });
+  } else {
+    html += `<th>#</th><th>Hora</th><th>Multiplicador</th></tr></thead><tbody>`;
+    data.forEach((r, i) => {
+      const t = new Date(r.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const v = parseFloat(r.crash_point);
+      const cls = pillClass(v);
+      const colors = { low:'var(--green)', mid:'#b2ff59', high:'var(--amber)', moon:'var(--accent2)' };
+      html += `<tr>
+        <td style="color:var(--text3);font-family:var(--mono)">${i+1}</td>
+        <td style="font-family:var(--mono);font-size:0.8rem">${t}</td>
+        <td style="font-family:var(--mono);font-weight:700;color:${colors[cls]}">${v.toFixed(2)}x</td>
+      </tr>`;
+    });
+  }
+  html += `</tbody></table></div>`;
+  document.getElementById('hist-content').innerHTML = html;
+}
+
+/* ── STATUS ── */
+function setLiveStatus(ok) {
+  document.getElementById('live-status').textContent = ok ? 'ao vivo' : 'offline';
+}
+
+/* ── POLLING ── */
+async function tick() {
+  await Promise.all([fetchDouble(), fetchCrash()]);
+}
+
+tick();
+setInterval(tick, 6000);
+
+// data padrão no histórico
+setupHistorico();
+</script>
+</body>
+</html>
